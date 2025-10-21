@@ -1,0 +1,114 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "ui",
+      "secret": "",
+      "external_ui_download_url": "https://mirror.ghproxy.com/https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
+      "external_ui_download_detour": "direct",
+      "default_mode": "Enhanced"
+    }
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "google",
+        "type": "udp",
+        "server": "8.8.8.8",
+        "detour": "Google"
+      },
+      {
+        "tag": "ali",
+        "type": "https",
+        "server": "223.5.5.5"
+      }
+    ],
+    "rules": [
+      {
+        "clash_mode": "Direct",
+        "server": "ali"
+      },
+      {
+        "clash_mode": "Global",
+        "server": "google"
+      },
+      {
+        "rule_set": "geosite-geolocation-cn",
+        "server": "ali"
+      },
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "rule_set": "geosite-geolocation-!cn",
+            "invert": true
+          },
+          {
+            "rule_set": "geoip-cn"
+          }
+        ],
+        "server": "google",
+        "client_subnet": "163.125.229.25/24"
+      }
+    ],
+    "independent_cache": true,
+    "reverse_mapping": true,
+    "strategy": "ipv4_only"
+  },
+  "inbounds": [
+    {% if inbound_mode == "tun" %}
+    {
+      "tag": "tun-in",
+      "type": "tun",
+      "interface_name": "tun0",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": false,
+      "sniff": true,
+      "sniff_override_destination": true
+    }
+    {% else %}
+    {
+      "tag": "mixed-in",
+      "type": "mixed",
+      "listen": "0.0.0.0",
+      "listen_port": 7890,
+      "set_system_proxy": false
+    }
+    {% endif %}
+  ],
+  "outbounds": {{ outbounds | tojson(2) }},
+  "route": {
+    "rules": {{ route_rules | tojson(2) }},
+    "rule_set": [
+      {
+        "tag": "geosite-geolocation-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-geolocation-cn.srs",
+        "download_detour": "direct"
+      },
+      {
+        "tag": "geosite-geolocation-!cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-geolocation-!cn.srs",
+        "download_detour": "direct"
+      },
+      {
+        "tag": "geoip-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs",
+        "download_detour": "direct"
+      }
+    ],
+    "final": "Proxy",
+    "auto_detect_interface": true
+  }
+}
