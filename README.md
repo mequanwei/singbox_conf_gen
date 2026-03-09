@@ -1,169 +1,124 @@
-# Sing-box Configuration Generator
+# singbox_conf_gen
 
-A Python tool to convert Clash subscription configurations to sing-box format.
+将 Clash 订阅转换为 sing-box 配置的 Python 工具。地区分组规则写在模板文件头部，模板文件自包含，无需额外配置。
 
-## Features
-
-- ✅ **Jinja2 Template System** - 动态模板支持，方便自定义配置
-- ✅ Fetch Clash configurations from subscription URLs (with caching)
-- ✅ Convert Clash format to sing-box configuration
-- ✅ Sanitize node names (remove emojis, ensure UTF-8 compatibility)
-- ✅ Generate routes from Clash rules
-- ✅ Support selective updates (nodes only)
-- ✅ Configurable inbound modes (mixed or tun)
-- ✅ CLI interface with multiple commands
-- ✅ Template management (create, list, switch templates)
-- ✅ Backward compatibility with JSON templates
-
-## Installation
-
-1. Clone this repository
-2. Install dependencies using uv:
-   ```bash
-   uv pip install -r requirements.txt
-   ```
-
-## Usage
-
-### Generate Complete Configuration
+## 安装
 
 ```bash
-# Generate with default Jinja2 template (mixed inbound)
-uv run python main.py generate --output config.json
-
-# Generate with tun inbound using Jinja2 template
-uv run python main.py generate --inbound tun --output config.json
-
-# Generate using custom template
-uv run python main.py generate --template my_custom.j2 --output config.json
-
-# Generate from specific URL
-uv run python main.py generate --url "your-subscription-url" --output config.json
-
-# Generate without sanitizing names (keep emojis)
-uv run python main.py generate --no-sanitize --output config.json
-
-# Use legacy JSON template system
-uv run python main.py generate --legacy-template --template singbox_config.json --output config.json
+uv pip install -r requirements.txt
 ```
 
-### Update Nodes Only
+## 用法
 
 ```bash
-# Update only proxy nodes in existing config
-uv run python main.py update --current config.json --output updated_config.json
+# 从 url 文件读取订阅地址，生成配置
+uv run python main.py
+
+# 指定订阅地址
+uv run python main.py --url "your-subscription-url"
+
+# 不使用缓存（重新拉取订阅）
+uv run python main.py --no-cache
+
+# 指定输出文件
+uv run python main.py --output config.json
 ```
 
-### Get Subscription Information
+### 选项
 
-```bash
-# Show subscription info without generating config
-uv run python main.py info
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--url`, `-u` | — | Clash 订阅地址（不填则读缓存） |
+| `--url-file`, `-f` | `url` | 包含订阅地址的文件 |
+| `--output`, `-o` | `output_config.json` | 输出文件 |
+| `--no-cache` | — | 不使用缓存，重新拉取订阅 |
+
+## 模板格式
+
+模板文件由两部分组成，用 `---` 分隔：
+
+1. **YAML front matter**：定义地区分组规则
+2. **Jinja2 模板体**：定义完整的 sing-box 配置结构
+
+```
+---
+regional_groups:
+  - name: "HK Game"
+    include: ["HK", "香港"]
+    require: ["游戏"]
+  - name: "HK"
+    include: ["HK", "香港"]
+    exclude: ["游戏"]
+  - name: "JP"
+    include: ["JP", "日本"]
+  - name: "US"
+    include: ["US", "美国"]
+---
+{
+  "outbounds": [
+    ...
+    {% for name, nodes in regional_groups.items() %}
+    {"tag": "{{ name }}", "type": "urltest", "outbounds": {{ nodes | tojson }}},
+    {% endfor %}
+    {% for node in outbounds %}
+    {{ node | tojson }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
 ```
 
-### Template Management
+### 分组匹配规则
 
-```bash
-# List available templates
-uv run python main.py list-templates
+| 字段 | 逻辑 | 说明 |
+|------|------|------|
+| `include` | OR | 节点名包含任一关键词 |
+| `require` | AND | 节点名必须包含所有关键词 |
+| `exclude` | NOT | 节点名不能包含任一关键词 |
 
-# Create a new template
-uv run python main.py create-template --name my_template.j2
-```
+- 按顺序匹配，第一个命中即分配
+- 未匹配的节点归入 `Others` 组
 
-### Other Commands
+### 模板变量
 
-```bash
-# Clear subscription cache
-uv run python main.py clear-cache
+| 变量 | 类型 | 说明 |
+|------|------|------|
+| `outbounds` | `list` | 转换后的代理节点（sing-box 格式） |
+| `regional_groups` | `dict[str, list[str]]` | 地区分组，key 为组名，value 为节点名列表 |
+| `all_proxy_names` | `list[str]` | 所有节点名 |
 
-# Show version
-uv run python main.py version
+服务分组（AI/Google/Streaming 等）直接在模板体中定义，按需修改。
 
-# Show help
-uv run python main.py --help
-```
+## 规则集
 
-## Configuration Files
+默认模板使用 [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat/tree/sing/geo) 提供的规则集，涵盖广告过滤、常用服务（OpenAI、YouTube、Netflix 等）和国内外地址段。所有规则集在 sing-box 启动时自动下载并缓存到本地。
 
-- `url`: Contains your Clash subscription URL
-- `templates/`: Directory containing Jinja2 template files
-  - `singbox_default.j2`: Default sing-box template
-- `singbox_config.json`: Legacy JSON template (for backward compatibility)
-- `clash.yaml`: Example Clash configuration (for reference)
+规则集分为两类：
 
-## Project Structure
+- **`geo/geosite/`**：基于域名的规则，如 `geosite-google`、`geosite-netflix`
+- **`geo/geoip/`**：基于 IP 段的规则，如 `geoip-cn`、`geoip-telegram`
+
+如需替换规则集来源，直接修改模板中 `rule_set` 数组里各条目的 `url` 字段。
+
+## 项目结构
 
 ```
 ├── src/
-│   ├── subscription_fetcher.py  # Fetch and cache subscriptions
-│   ├── route_extractor.py       # Extract routes from Clash config
-│   ├── singbox_config.py        # Sing-box configuration management
-│   ├── template_manager.py      # Jinja2 template management
-│   └── config_generator.py      # Main configuration generator
+│   ├── subscription_fetcher.py  # 订阅拉取与缓存
+│   ├── route_extractor.py       # Clash 代理节点转换
+│   ├── template_manager.py      # 模板解析与渲染
+│   └── config_generator.py      # 主流程
 ├── templates/
-│   └── singbox_default.j2       # Default Jinja2 template
-├── main.py                      # CLI interface
-├── example_usage.py             # Usage examples
-├── requirements.txt             # Dependencies
-├── TEMPLATE_GUIDE.md            # Template editing guide
-└── README.md                    # This file
+│   └── singbox_default.j2       # 默认模板（含地区分组规则）
+├── cache/                        # 订阅缓存（自动创建）
+├── main.py                       # CLI 入口
+├── requirements.txt
+└── url                           # 订阅地址文件（自行创建）
 ```
 
-## Requirements
+## 支持的代理协议
 
-- Python 3.8+
-- uv (recommended) or pip
-- Dependencies: requests, pyyaml, click, rich, jinja2
+从 Clash 订阅中提取以下类型的节点：
 
-## Features Implemented
-
-1. ✅ **Jinja2 Template System**: Dynamic template rendering with full customization
-2. ✅ **Subscription Fetching**: Fetches from URL with caching support
-3. ✅ **Route Extraction**: Converts Clash proxies and rules to sing-box format
-4. ✅ **Configuration Generation**: Creates structured sing-box configurations
-5. ✅ **Name Sanitization**: Removes emojis and ensures UTF-8 compatibility
-6. ✅ **Selective Updates**: Update only nodes without changing other settings
-7. ✅ **Inbound Selection**: Choose between mixed-in and tun modes
-8. ✅ **Template Management**: Create, list, and switch between templates
-9. ✅ **CLI Interface**: Easy-to-use command-line interface
-10. ✅ **Backward Compatibility**: Legacy JSON template support
-
-## Example Workflow
-
-```bash
-# 1. Check subscription info
-uv run python main.py info
-
-# 2. List available templates
-uv run python main.py list-templates
-
-# 3. Create custom template (optional)
-uv run python main.py create-template --name my_custom.j2
-
-# 4. Generate initial configuration using Jinja2 template
-uv run python main.py generate --template my_custom.j2 --output my_config.json
-
-# 5. Later update only nodes (preserving other settings)
-uv run python main.py update --current my_config.json --output updated_config.json
-```
-
-## Template Customization
-
-The new Jinja2 template system allows you to easily customize your sing-box configuration:
-
-1. **Edit templates directly**: Modify files in `templates/` directory
-2. **Dynamic configuration**: Templates support variables and conditional logic
-3. **Easy maintenance**: No need to modify code, just edit template files
-
-See `TEMPLATE_GUIDE.md` for detailed template editing instructions.
-
-## What's New in v2.0
-
-- 🆕 **Jinja2 Template System**: Replace static JSON with dynamic templates
-- 🆕 **Template Management**: CLI commands to create and manage templates
-- 🆕 **Enhanced Flexibility**: Easy customization without code changes
-- 🆕 **Better UX**: Cleaner separation between logic and configuration
-- ✅ **Backward Compatible**: Legacy JSON templates still supported
-
-This tool successfully converts Clash subscription configurations to sing-box format while providing maximum flexibility for customization through the new template system.
+- Shadowsocks（含 obfs 插件）
+- VMess（含 WebSocket 传输）
+- Trojan

@@ -69,7 +69,7 @@ extracted_routes_debug.json
 example_*.json
 
 # Keep cache for testing (optional)
-# cache/
+cache/
 
 # Private subscription data
 cache/

@@ -11,27 +11,38 @@ class SubscriptionFetcher:
         self.cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
 
-    def fetch_subscription(self, url: str, use_cache: bool = True) -> Dict[str, Any]:
-        """
-        Fetch Clash subscription from URL with optional caching
+    def fetch_subscription(self, url: Optional[str], use_cache: bool = True) -> Dict[str, Any]:
+        """Fetch Clash subscription from URL with optional caching.
 
-        Args:
-            url: Subscription URL
-            use_cache: Whether to use cached result if available
-
-        Returns:
-            Parsed YAML configuration as dictionary
+        If url is None, reads from cache. If cache is missing, raises an error.
         """
         cache_file = os.path.join(self.cache_dir, "clash_subscription.yaml")
         cache_meta_file = os.path.join(self.cache_dir, "cache_meta.json")
+
+        # No URL provided — must use cache
+        if url is None:
+            if os.path.exists(cache_file):
+                try:
+                    if os.path.exists(cache_meta_file):
+                        with open(cache_meta_file, 'r') as f:
+                            meta = json.load(f)
+                        print(f"No URL provided, using cache (saved {meta['timestamp']})")
+                    else:
+                        print("No URL provided, using cache")
+                    with open(cache_file, 'r', encoding='utf-8') as f:
+                        return yaml.safe_load(f)
+                except Exception as e:
+                    raise Exception(f"Failed to read cache: {e}")
+            else:
+                raise Exception("No subscription URL provided and no cache found. "
+                                "Pass --url or create a 'url' file.")
 
         # Check if cache exists and is valid
         if use_cache and os.path.exists(cache_file) and os.path.exists(cache_meta_file):
             try:
                 with open(cache_meta_file, 'r') as f:
                     meta = json.load(f)
-                    print(f"Using cached subscription from {meta['timestamp']}")
-                    print(f"Original URL: {meta['url']}")
+                print(f"Using cached subscription (saved {meta['timestamp']})")
 
                 with open(cache_file, 'r', encoding='utf-8') as f:
                     return yaml.safe_load(f)
@@ -66,7 +77,7 @@ class SubscriptionFetcher:
                             config = yaml.safe_load(decoded_text)
                             if config is None:
                                 config = self._parse_subscription_urls(decoded_text)
-                    except:
+                    except Exception:
                         # If base64 fails, try parsing as subscription URLs
                         config = self._parse_subscription_urls(response.text)
 
@@ -91,23 +102,7 @@ class SubscriptionFetcher:
         except yaml.YAMLError as e:
             raise Exception(f"Failed to parse YAML: {e}")
 
-    def get_cache_info(self) -> Optional[Dict[str, Any]]:
-        """Get information about cached subscription"""
-        cache_meta_file = os.path.join(self.cache_dir, "cache_meta.json")
-        if os.path.exists(cache_meta_file):
-            with open(cache_meta_file, 'r') as f:
-                return json.load(f)
-        return None
 
-    def clear_cache(self):
-        """Clear cached subscription data"""
-        cache_file = os.path.join(self.cache_dir, "clash_subscription.yaml")
-        cache_meta_file = os.path.join(self.cache_dir, "cache_meta.json")
-
-        for file in [cache_file, cache_meta_file]:
-            if os.path.exists(file):
-                os.remove(file)
-                print(f"Removed {file}")
 
     def _parse_subscription_urls(self, content: str) -> Dict[str, Any]:
         """Parse base64-encoded subscription URLs into Clash format"""

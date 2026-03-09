@@ -1,5 +1,4 @@
 requests
 pyyaml
 click
-rich
 jinja2
