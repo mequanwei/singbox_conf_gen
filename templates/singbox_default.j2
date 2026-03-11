@@ -58,6 +58,10 @@ regional_groups:
         "server": "google"
       },
       {
+        "rule_set": "moffett",
+        "server": "moffett"
+      },
+      {
         "rule_set": "geosite-geolocation-cn",
         "server": "ali"
       },
@@ -225,10 +229,13 @@ regional_groups:
           "yacd.metacubex.one",
           "yacd.haishan.me",
           "d.metacubex.one",
-          "tagss.pro",
           "tagxx.vip"
         ],
         "outbound": "direct"
+      },
+      {
+        "domain_regex": ["^tagss[0-9]{2}\\.pro$"],
+        "outbound":"direct"
       },
       {
         "ip_is_private": true,
