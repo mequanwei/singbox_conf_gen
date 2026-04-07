@@ -46,6 +46,12 @@ regional_groups:
         "tag": "ali",
         "type": "https",
         "server": "223.5.5.5"
+      },
+      {
+        "tag": "game-dns",
+        "type": "https",
+        "server": "8.8.8.8",
+        "detour": "Game"
       }
     ],
     "rules": [
@@ -60,6 +66,10 @@ regional_groups:
       {
         "rule_set": "moffett",
         "server": "moffett"
+      },
+      {
+        "rule_set": ["geosite-category-games-!cn", "nexon-ruleset"],
+        "server": "game-dns"
       },
       {
         "rule_set": "geosite-geolocation-cn",
@@ -91,6 +101,9 @@ regional_groups:
       "type": "tun",
       "address": ["172.19.0.1/30"],
       "auto_route": true,
+      {% if platform == "linux" -%}
+      "auto_redirect": true,
+      {% endif -%}
       "strict_route": false
     },
     {
@@ -116,7 +129,7 @@ regional_groups:
       {% elif name == "US" -%}
       "default": "美国-旧金山丨1x US",
       {% endif -%}
-      "outbounds": {{ nodes | tojson }}
+      "outbounds": {{ (nodes + ["direct"]) | tojson }}
     },
     {% endfor -%}
     {
@@ -125,8 +138,9 @@ regional_groups:
       "default": "HK",
       "outbounds": [
         {% for name in regional_groups.keys() -%}
-        "{{ name }}"{% if not loop.last %},{% endif %}
+        "{{ name }}",
         {% endfor %}
+        "direct"
       ]
     },
     {
@@ -136,7 +150,13 @@ regional_groups:
     {
       "tag": "AI",
       "type": "selector",
-      "outbounds": ["US Home","Proxy"]
+      "outbounds": ["US Home","Proxy","direct"]
+    },
+    {
+      "tag": "Game",
+      "type": "selector",
+      "default": "HK",
+      "outbounds": ["HK Game", "HK", "US", "US Home", "direct"]
     },
     {
       "tag": "Google",
@@ -144,8 +164,9 @@ regional_groups:
       "outbounds": [
         "Proxy",
         {% for name in regional_groups.keys() -%}
-        "{{ name }}"{% if not loop.last %},{% endif %}
+        "{{ name }}",
         {% endfor %}
+        "direct"
       ]
     },
     {
@@ -154,8 +175,9 @@ regional_groups:
       "outbounds": [
         "Proxy",
         {% for name in regional_groups.keys() -%}
-        "{{ name }}"{% if not loop.last %},{% endif %}
+        "{{ name }}",
         {% endfor %}
+        "direct"
       ]
     },
     {
@@ -229,7 +251,11 @@ regional_groups:
           "yacd.metacubex.one",
           "yacd.haishan.me",
           "d.metacubex.one",
-          "tagxx.vip"
+          "tagxx.vip",
+          "rama991.siamparagon.org",
+          "link01.nobodys.uk",
+          "huaikhwang.central-world.org",
+          "villa.parkson-market.org"
         ],
         "outbound": "direct"
       },
@@ -279,8 +305,12 @@ regional_groups:
         "outbound": "Microsoft"
       },
       {
-        "rule_set": ["geosite-category-games", "geosite-dmm"],
-        "outbound": "Proxy"
+        "rule_set": ["geosite-category-games-!cn", "nexon-ruleset"],
+        "outbound": "Game"
+      },
+      {
+        "rule_set": "geosite-category-games-cn",
+        "outbound": "direct"
       },
       {
         "rule_set": "geosite-geolocation-!cn",
@@ -454,18 +484,30 @@ regional_groups:
         "download_detour": "direct"
       },
       {
-        "tag": "geosite-category-games",
+        "tag": "geosite-category-games-!cn",
         "type": "remote",
         "format": "binary",
-        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/category-games.srs",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/category-games-!cn.srs",
         "download_detour": "direct"
       },
       {
-        "tag": "geosite-dmm",
+        "tag": "geosite-category-games-cn",
         "type": "remote",
         "format": "binary",
-        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/dmm.srs",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/category-games-cn.srs",
         "download_detour": "direct"
+      },
+      {
+        "tag": "nexon-ruleset",
+        "type": "inline",
+        "rules": [
+          {
+            "domain_keyword": ["maplestory", "nexon"]
+          },
+          {
+            "port": [8913, 8484, 9994, 8585, 8785, 8685, 8588, 8586, 8587, 47611, 50004, 8589]
+          }
+        ]
       },
       {
         "tag": "geosite-hbo",

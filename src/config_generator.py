@@ -17,7 +17,8 @@ class ConfigGenerator:
     def generate_full_config(self,
                              subscription_url: Optional[str],
                              output_file: str,
-                             use_cache: bool = True) -> Dict[str, Any]:
+                             use_cache: bool = True,
+                             platform: str = 'default') -> Dict[str, Any]:
 
         print(f"[sing-box] Generating config  output={output_file}")
         print()
@@ -52,6 +53,7 @@ class ConfigGenerator:
             outbounds=outbounds,
             regional_groups=regional_groups,
             all_proxy_names=proxy_names,
+            platform=platform,
         )
 
         # Step 7: Save

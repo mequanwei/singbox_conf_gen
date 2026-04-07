@@ -9,7 +9,8 @@ from src.config_generator import ConfigGenerator
 @click.option('--url-file', '-f', default='url', help='File containing subscription URL (default: url)')
 @click.option('--output', '-o', default='output_config.json', help='Output file (default: output_config.json)')
 @click.option('--no-cache', is_flag=True, help='Do not use cached subscription')
-def generate(url, url_file, output, no_cache):
+@click.option('--platform', '-p', default='default', type=click.Choice(['default', 'linux']), help='Target platform (linux adds auto_redirect to tun)')
+def generate(url, url_file, output, no_cache, platform):
     """Sing-box Configuration Generator - Convert Clash subscriptions to sing-box format"""
 
     subscription_url = None
@@ -24,7 +25,8 @@ def generate(url, url_file, output, no_cache):
         config = generator.generate_full_config(
             subscription_url=subscription_url,
             output_file=output,
-            use_cache=not no_cache
+            use_cache=not no_cache,
+            platform=platform,
         )
         click.echo(f"\nDone! {len(config.get('outbounds', []))} outbounds -> {output}")
     except Exception as e:
