@@ -6,6 +6,8 @@ import base64
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+DEFAULT_USER_AGENT = "clash-verge/v2.2.3"
+
 class SubscriptionFetcher:
     def __init__(self, cache_dir: str = "cache"):
         self.cache_dir = cache_dir
@@ -52,8 +54,10 @@ class SubscriptionFetcher:
         # Fetch from URL
         print(f"Fetching subscription from: {url}")
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": DEFAULT_USER_AGENT,
+            "Accept": "*/*",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
         }
         try:
             response = requests.get(url, headers=headers, timeout=30)
@@ -93,7 +97,12 @@ class SubscriptionFetcher:
             meta = {
                 "url": url,
                 "timestamp": datetime.now().isoformat(),
-                "response_size": len(response.text)
+                "response_size": len(response.text),
+                "user_agent": DEFAULT_USER_AGENT,
+                "content_type": response.headers.get("content-type"),
+                "has_dns": isinstance(config, dict) and "dns" in config,
+                "has_hosts": isinstance(config, dict) and "hosts" in config,
+                "proxy_count": len(config.get("proxies", [])) if isinstance(config, dict) else 0,
             }
             with open(cache_meta_file, 'w') as f:
                 json.dump(meta, f, indent=2)
